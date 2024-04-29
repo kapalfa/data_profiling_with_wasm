@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head> </head>
+  <body>
+    <form action="/login" method="post">
+      <div class="container">
+        <label for="username">Username</label>
+        <input
+          id="username"
+          type="text"
+          placeholder="Enter Username"
+          name="username"
+          autocomplete="username"
+        />
+
+        <label for="password">Password</label>
+        <input
+          id="password"
+          type="password"
+          placeholder="Enter Password"
+          name="password"
+          autocomplete="current-password"
+          required
+        />
+
+        <button type="submit">Login</button>
+      </div>
+    </form>
+
+    <button id="signupButton">Sign up</button>
+    <a
+      href="http://localhost:3000/signup"
+      id="signupLink"
+      style="display: none"
+    ></a>
+    <script>
+      document
+        .getElementById("signupButton")
+        .addEventListener("click", function () {
+          var signupLink = document.getElementById("signupLink");
+          var event = new MouseEvent("click", {
+            view: window,
+            bubbles: true,
+            cancelable: true,
+          });
+          signupLink.dispatchEvent(event);
+        });
+    </script>
+  </body>
+</html>

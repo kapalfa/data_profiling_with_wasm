@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.5.0/axios.min.js"
+      integrity="sha512-aoTNnqZcT8B4AmeCFmiSnDlc4Nj/KPaZyB5G7JnOnUEkdNpCZs1LCankiYi01sLTyWy+m2P+W4XM+BuQ3Q4/Dg=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+  </head>
+  <body>
+    <h1>Sign up</h1>
+    <form id="signup-form">
+      <section>
+        <label for="name">Username</label>
+        <input id="name" name="name" type="text" autocomplete="name" required />
+      </section>
+      <section>
+        <label for="password">Password</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autocomplete="password"
+          required
+        />
+      </section>
+      <button id="btn" type="submit">Sign up</button>
+    </form>
+    <script>
+      const form = document.getElementById("signup-form");
+
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        const nameInput = document.getElementById("name");
+        const pswInput = document.getElementById("password");
+        await axios({
+          method: "post",
+          url: "http://localhost:3000/signup",
+          data: JSON.stringify({
+            name: nameInput.value,
+            password: pswInput.value,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+          .then((response) => {
+            console.log("success: ", response);
+            window.location = response.request.responseURL;
+          })
+          .catch((error) => {
+            console.log("server responded with error", error.response.data);
+          });
+      });
+    </script>
+  </body>
+</html>

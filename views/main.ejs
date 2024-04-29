@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE-edge" />
+    <meta name="viewport" content="width=device-width" , initial-scale="1.0" />
+    <title>Document</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM"
+      crossorigin="anonymous"
+    />
+    <script
+      src="https://code.jquery.com/jquery-3.7.0.min.js"
+      integrity="sha256-2Pmvv0kuTBOenSvLm6bvfBSSHrUJ+3A7x6P5Ebd07/g="
+      crossorigin="anonymous"
+    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="/wasm/wtf.js"></script>
+
+    <form>
+      <div>
+        <label for="input">Select a file</label>
+        <input
+          type="file"
+          id="input"
+          name="input"
+          accept=".xslx, .xls, .csv"
+          multiple
+        />
+      </div>
+      <div class="preview">
+        <!-- <p>No files currently selected for upload</p> -->
+      </div>
+    </form>
+
+    <ul id="headers"></ul>
+
+    <script>
+      const inputList = document.getElementById("input");
+      inputList.addEventListener("change", handleFiles, false);
+      const preview = document.querySelector(".preview");
+
+      function handleFiles() {
+        const fileList = inputList.files;
+        const numFiles = fileList.length;
+
+        for (let i = 0; i < numFiles; i++) {
+          const file = fileList[i];
+
+          const csv = document.createElement("csv");
+          csv.classList.add("obj");
+          csv.file = file;
+          preview.appendChild(csv);
+
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            csv.src = e.target.result;
+
+            const lines = e.target.result.split("\n");
+            if (lines.length > 0) {
+              const columnNames = lines[0].split(",");
+              console.log("Column Names: ", columnNames);
+            }
+          };
+          reader.readAsText(file);
+        }
+      }
+      inputList.addEventListener("change", runWasm, false);
+
+      function runWasm() {
+        const csvElements = document.querySelectorAll(".obj");
+        for (let i = 0; i < csvElements.length; i++) {
+          const csvfile = csvElements[i].file;
+          var filecontent;
+
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            filecontent = e.target.result;
+
+            const offset = 0;
+            const length = filecontent.byteLength;
+
+            const memory = new WebAssembly.Memory({
+              initial: 10,
+              maximum: 200,
+            });
+            const array = new Int8Array(memory.buffer, offset, length);
+            for (let i = 0; i < length; i++) {
+              array[i] = new DataView(filecontent).getInt8(i, true);
+            }
+
+            var ptr = Module._malloc(array.length * array.BYTES_PER_ELEMENT);
+            var buffer = new Int8Array(Module.HEAPU8.buffer, ptr, length);
+
+            for (var i = 0; i < length; i++) {
+              Module.setValue(ptr + i, array[i], "i8");
+            }
+
+            Module.ccall(
+              "printLength",
+              "number",
+              ["number", "number"],
+              [ptr, length]
+            );
+            Module._free(ptr);
+          };
+          reader.readAsArrayBuffer(csvfile);
+        }
+      }
+
+      inputList.addEventListener("change", runWasm2, false);
+      function runWasm2() {
+        const csvElements = document.querySelectorAll(".obj");
+        for (let i = 0; i < csvElements.length; i++) {
+          const csvfile = csvElements[i].file;
+          var filecontent;
+
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            filecontent = e.target.result;
+
+            const contentString = new TextDecoder().decode(filecontent);
+            const lines = contentString.split("\n");
+            if (lines.length > 0) {
+              const firstRow = lines[0];
+              const firstRowBytes = new TextEncoder().encode(firstRow);
+              const firstRowArrayBuffer = firstRowBytes.buffer;
+
+              const offset = 0;
+              const length = firstRowArrayBuffer.byteLength;
+              const memory = new WebAssembly.Memory({
+                initial: 1,
+                maximum: 10,
+              });
+
+              const array = new Int8Array(memory.buffer, offset, length);
+              for (let j = 0; j < length; j++) {
+                array[j] = new DataView(firstRowArrayBuffer).getInt8(j, true);
+              }
+
+              var ptr = Module._malloc(array.length * array.BYTES_PER_ELEMENT);
+              var buffer = new Int8Array(Module.HEAPU8.buffer, ptr, length);
+
+              for (var j = 0; j < length; j++) {
+                Module.setValue(ptr + j, array[j], "i8");
+              }
+              var res = Module.ccall(
+                "countColumns",
+                "number",
+                ["number", "number"],
+                [ptr, length]
+              );
+
+              var headersPtr = Module._malloc(
+                (length + res + 1) * array.BYTES_PER_ELEMENT
+              );
+              var buff = new Int8Array(
+                Module.HEAPU8.buffer,
+                headersPtr,
+                length + res + 1
+              );
+
+              Module.ccall(
+                "getHeaders",
+                "",
+                ["number", "number", "number"],
+                [ptr, length, headersPtr]
+              );
+
+              headers = [];
+              header = [];
+              for (let j = 0; j < length + 1; j++) {
+                if (String.fromCharCode(buff[j]) == "\n") {
+                  headers.push(header.join(""));
+                  header = [];
+                  continue;
+                }
+                header.push(String.fromCharCode(buff[j]));
+              }
+              var outputDiv = document.getElementById("headers");
+              const listName = document.createTextNode("Header Names");
+              outputDiv.appendChild(listName);
+              for (var j = 0; j < res; j++) {
+                var listItem = document.createElement("li");
+                listItem.textContent = headers[j];
+                outputDiv.appendChild(listItem);
+              }
+            }
+            Module._free(ptr);
+            Module._free(headersPtr);
+          };
+          reader.readAsArrayBuffer(csvfile);
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <form action="/logout" method="post">
+      <div class="container">
+        <button type="submit">Log Out</button>
+      </div>
+    </form>
+    </div>
+  </body>
+</html>
